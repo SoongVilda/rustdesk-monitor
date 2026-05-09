@@ -40,6 +40,9 @@ Simply run the script in your terminal:
 rustdesk-monitor
 ```
 
+> [!TIP]
+> If you want to monitor the system-wide RustDesk service, you may need to run the script with `sudo` so that `ss` can access process names and PIDs.
+
 The UI refreshes every 0.5s by default. Press `Ctrl+C` to exit.
 
 ### Available Options
