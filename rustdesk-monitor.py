@@ -300,24 +300,31 @@ def fmt_rate(bps):
 
 def detect_alerts(conns):
     """Return list of alert strings for current state."""
-    alerts = []
-    relay = [c for c in conns if "Relay" in c['type'] and c['dir'] != 'LSTN']
-    if relay:
-        alerts.append(f"⚠ {len(relay)} relay connection(s) — not direct")
-    high_rtt = [c for c in conns if c.get('rtt') is not None and c['rtt'] > 200]
-    if high_rtt:
-        alerts.append(f"⚠ {len(high_rtt)} connection(s) with RTT >200ms")
-    retrans = [c for c in conns if c.get('retrans') and c['retrans'] > 5]
-    if retrans:
-        alerts.append(f"⚠ {len(retrans)} connection(s) with retransmissions")
-    queued = []
+    n_relay = n_rtt = n_retrans = n_queued = 0
     for c in conns:
+        if "Relay" in c['type'] and c['dir'] != 'LSTN':
+            n_relay += 1
+        rtt = c.get('rtt')
+        if rtt is not None and rtt > 200:
+            n_rtt += 1
+        retrans = c.get('retrans')
+        if retrans is not None and retrans > 5:
+            n_retrans += 1
         try:
             if int(c.get('rx', 0)) > 0 or int(c.get('tx', 0)) > 0:
-                queued.append(c)
-        except (ValueError, TypeError): pass
-    if queued:
-        alerts.append(f"⚠ {len(queued)} connection(s) with queued data")
+                n_queued += 1
+        except (ValueError, TypeError):
+            pass
+
+    alerts = []
+    if n_relay:
+        alerts.append(f"⚠ {n_relay} relay connection(s) — not direct")
+    if n_rtt:
+        alerts.append(f"⚠ {n_rtt} connection(s) with RTT >200ms")
+    if n_retrans:
+        alerts.append(f"⚠ {n_retrans} connection(s) with retransmissions")
+    if n_queued:
+        alerts.append(f"⚠ {n_queued} connection(s) with queued data")
     return alerts
 
 # =============================================================================
