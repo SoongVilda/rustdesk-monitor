@@ -32,9 +32,22 @@ sudo mv rustdesk-monitor.py /usr/local/bin/rustdesk-monitor
 
 *(Note: It is perfectly fine to run it directly from your home directory without moving it to your path.)*
 
+## Architecture & Unix Philosophy
+
+The codebase has been structured to adhere strictly to the **Unix Philosophy**, particularly emphasizing the *Rule of Modularity* and the *Rule of Separation*.
+
+To achieve this while maintaining a "zero dependencies" and single-file download for users, the source code is broken down into separate modules located in the `src/` directory:
+* `src/config.py` - Configuration loading (Data)
+* `src/parser.py` - Interfacing with `ss` and extracting connection info (Mechanism)
+* `src/tracker.py` - State tracking, health, and alerting (Logic)
+* `src/ui.py` - Terminal rendering and layout (Policy)
+* `src/main.py` - CLI orchestration
+
+**For Developers:** Do not edit `rustdesk-monitor.py` directly. Instead, modify the files in `src/` and then run `./build.py` to compile the single-file distribution script. This approach yields the maintainability of a multi-file Python package while preserving the portability of a standalone script.
+
 ## Usage
 
-Simply run the script in your terminal:
+Simply run the compiled script in your terminal:
 
 ```bash
 rustdesk-monitor
