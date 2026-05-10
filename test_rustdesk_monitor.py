@@ -1,5 +1,6 @@
 # Unit tests for rustdesk-monitor.py
 import unittest
+from unittest.mock import patch, mock_open
 import importlib.util
 import sys
 import os
@@ -42,6 +43,52 @@ class TestAnsiFunctions(unittest.TestCase):
         # Empty string
         self.assertEqual(monitor.ansi_center("", 4), "    ")
         self.assertEqual(monitor.ansi_center("", 0), "")
+
+class TestParseConnections(unittest.TestCase):
+    @patch('subprocess.check_output')
+    def test_parse_connections_basic(self, mock_ss):
+        mock_ss.return_value = """Netid State Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+tcp ESTAB 0 0 192.168.1.10:12345 1.2.3.4:21117 users:(("rustdesk",pid=1234,fd=5))
+ tcp-info: rtt:10.5/5.2 cwnd:10 bytes_sent:1000 bytes_received:2000
+"""
+        conns = monitor.parse_connections("rustdesk", "21118")
+        self.assertEqual(len(conns), 1)
+        c = conns[0]
+        self.assertEqual(c['pid'], '1234')
+        self.assertEqual(c['pname'], 'rustdesk')
+        self.assertEqual(c['type'], 'Relay (Indirect Routing)')
+
+    @patch('subprocess.check_output')
+    def test_parse_connections_malformed_proc_blob(self, mock_ss):
+        mock_ss.return_value = """Netid State Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+tcp ESTAB 0 0 192.168.1.10:12345 1.2.3.4:21117 rustdesk pid=
+"""
+        conns = monitor.parse_connections("rustdesk", "21118")
+        self.assertEqual(len(conns), 1)
+        self.assertEqual(conns[0]['pid'], '')
+
+class TestConfigLoading(unittest.TestCase):
+    @patch('os.path.isfile')
+    @patch('builtins.open', new_callable=mock_open, read_data='nat_type = 1\nrendezvous_server = "test.server.com"\n[options]\ndirect-access-port = 12345')
+    def test_read_rustdesk_config_valid(self, mock_file, mock_isfile):
+        mock_isfile.return_value = True
+        cfg = monitor.read_rustdesk_config()
+        self.assertEqual(cfg['nat_type'], 1)
+        self.assertEqual(cfg['rendezvous_server'], 'test.server.com')
+        self.assertEqual(cfg['direct_port'], '12345')
+
+    @patch('os.path.isfile')
+    def test_read_rustdesk_config_missing(self, mock_isfile):
+        mock_isfile.return_value = False
+        cfg = monitor.read_rustdesk_config()
+        self.assertEqual(cfg['direct_port'], '21118')
+
+    @patch('os.path.isfile')
+    @patch('builtins.open', side_effect=OSError("Permission denied"))
+    def test_read_rustdesk_config_oserror(self, mock_file, mock_isfile):
+        mock_isfile.return_value = True
+        cfg = monitor.read_rustdesk_config()
+        self.assertEqual(cfg['direct_port'], '21118')
 
 if __name__ == "__main__":
     unittest.main()
