@@ -603,6 +603,8 @@ def main():
     direct_port = rd_cfg["direct_port"]
     nat_label = NAT_LABELS.get(rd_cfg["nat_type"], "Unknown")
     interval = args.watch if args.watch is not None else 0.5
+    if interval < 0.1:
+        interval = 0.1
     tracker = ConnectionTracker()
     log_fh = None
 
