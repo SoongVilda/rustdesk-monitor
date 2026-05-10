@@ -23,12 +23,14 @@ A real-time, terminal-based dashboard for monitoring RustDesk connections. This 
 Because it is a single standalone file, installation is as simple as downloading it and making it executable:
 
 ```bash
-curl -O https://raw.githubusercontent.com/SoongVilda/rustdesk-monitor/main/rustdesk-monitor.py && \
-chmod +x rustdesk-monitor.py && \
+git clone https://github.com/SoongVilda/rustdesk-monitor.git
+cd rustdesk-monitor
+python3 build.py
+chmod +x rustdesk-monitor.py
 sudo mv rustdesk-monitor.py /usr/local/bin/rustdesk-monitor
 ```
 
-*(Note: It is perfectly fine to omit the `sudo mv` command and run it directly from your home directory without moving it to your path.)*
+*(Note: It is perfectly fine to omit the `sudo mv` command and run the compiled script directly from the repository directory without moving it to your path.)*
 
 ## Architecture & Unix Philosophy
 
