@@ -101,6 +101,27 @@ class TestAnsiFunctions(unittest.TestCase):
         self.assertEqual(monitor.ansi_center("", 4), "    ")
         self.assertEqual(monitor.ansi_center("", 0), "")
 
+    def test_ansi_ljust(self):
+        # Plain strings
+        self.assertEqual(monitor.ansi_ljust("abc", 5), "abc  ")
+        self.assertEqual(monitor.ansi_ljust("abcde", 5), "abcde")
+        self.assertEqual(monitor.ansi_ljust("abcdef", 5), "abcdef") # width < len
+
+        # ANSI strings
+        ansi_str = "\033[1mhello\033[0m"
+        ljusted = monitor.ansi_ljust(ansi_str, 8)
+        self.assertEqual(monitor.ansi_len(ljusted), 8)
+        self.assertEqual(ljusted, ansi_str + "   ")
+
+        ansi_str_2 = "\033[38;5;84m●\033[0m" # len 1
+        ljusted_2 = monitor.ansi_ljust(ansi_str_2, 3)
+        self.assertEqual(monitor.ansi_len(ljusted_2), 3)
+        self.assertEqual(ljusted_2, ansi_str_2 + "  ")
+
+        # Empty string
+        self.assertEqual(monitor.ansi_ljust("", 4), "    ")
+        self.assertEqual(monitor.ansi_ljust("", 0), "")
+
 class TestParseConnections(unittest.TestCase):
     @patch('subprocess.check_output')
     def test_parse_connections_basic(self, mock_ss):
