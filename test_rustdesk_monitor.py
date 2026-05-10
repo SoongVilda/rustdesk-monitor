@@ -147,5 +147,83 @@ class TestConfigLoading(unittest.TestCase):
         cfg = monitor.read_rustdesk_config()
         self.assertEqual(cfg['direct_port'], '21118')
 
+class TestHealthAndAlerts(unittest.TestCase):
+    def test_compute_health(self):
+        # Listen direction
+        self.assertEqual(monitor.compute_health({'dir': 'LSTN'}), '—')
+
+        # Missing RTT
+        self.assertEqual(monitor.compute_health({'dir': 'IN', 'rtt': None}), '?')
+
+        # Grade A: rtt < 20, jitter < 5, retrans == 0, queue == 0
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 15, 'jitter': 2, 'retrans': 0, 'rx': '0', 'tx': '0'
+        }), 'A')
+
+        # Grade B: rtt < 50, retrans <= 2
+        self.assertEqual(monitor.compute_health({
+            'dir': 'IN', 'rtt': 45, 'jitter': 10, 'retrans': 1, 'rx': '10', 'tx': '0'
+        }), 'B')
+
+        # Grade C: rtt < 100
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 95, 'jitter': 5, 'retrans': 0, 'rx': '0', 'tx': '0'
+        }), 'C')
+
+        # Grade D: rtt < 200
+        self.assertEqual(monitor.compute_health({
+            'dir': 'IN', 'rtt': 150, 'jitter': 15, 'retrans': 5, 'rx': '0', 'tx': '0'
+        }), 'D')
+
+        # Grade F: rtt >= 200
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 250, 'jitter': 20, 'retrans': 10, 'rx': '0', 'tx': '0'
+        }), 'F')
+
+    def test_detect_alerts(self):
+        # Empty case
+        self.assertEqual(monitor.detect_alerts([]), [])
+
+        # Mixed alerts
+        conns = [
+            {'type': 'Relay', 'dir': 'IN', 'rtt': 15},
+            {'type': 'Relay', 'dir': 'OUT', 'rtt': 250},
+            {'type': 'Direct', 'dir': 'IN', 'rtt': 45, 'retrans': 6},
+            {'type': 'Direct', 'dir': 'OUT', 'rtt': 15, 'rx': '100', 'tx': '50'}
+        ]
+
+        alerts = monitor.detect_alerts(conns)
+        self.assertEqual(len(alerts), 4)
+        self.assertTrue(any('2 relay connection(s)' in a for a in alerts))
+        self.assertTrue(any('1 connection(s) with RTT >200ms' in a for a in alerts))
+        self.assertTrue(any('1 connection(s) with retransmissions' in a for a in alerts))
+        self.assertTrue(any('1 connection(s) with queued data' in a for a in alerts))
+
+class TestUtilityFunctions(unittest.TestCase):
+    def test_extract_port(self):
+        self.assertEqual(monitor.extract_port("192.168.1.1:12345"), "12345")
+        self.assertEqual(monitor.extract_port("[fe80::1]:8080"), "8080")
+        self.assertEqual(monitor.extract_port("*:*"), "*")
+        self.assertEqual(monitor.extract_port("127.0.0.1:*"), "*")
+        self.assertEqual(monitor.extract_port("no_port_here"), "")
+        self.assertEqual(monitor.extract_port("0.0.0.0:21118"), "21118")
+
+    def test_fmt_duration(self):
+        self.assertEqual(monitor.fmt_duration(0), "0s")
+        self.assertEqual(monitor.fmt_duration(45), "45s")
+        self.assertEqual(monitor.fmt_duration(60), "1m0s")
+        self.assertEqual(monitor.fmt_duration(65), "1m5s")
+        self.assertEqual(monitor.fmt_duration(3600), "1h0m")
+        self.assertEqual(monitor.fmt_duration(3665), "1h1m")
+        self.assertEqual(monitor.fmt_duration(7325), "2h2m")
+
+    def test_fmt_rate(self):
+        self.assertEqual(monitor.fmt_rate(None), "—")
+        self.assertEqual(monitor.fmt_rate(500), "500B")
+        self.assertEqual(monitor.fmt_rate(1024), "1.0K")
+        self.assertEqual(monitor.fmt_rate(1536), "1.5K")
+        self.assertEqual(monitor.fmt_rate(1048576), "1.0M")
+        self.assertEqual(monitor.fmt_rate(1572864), "1.5M")
+
 if __name__ == "__main__":
     unittest.main()
