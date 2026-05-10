@@ -13,6 +13,7 @@ spec = importlib.util.spec_from_file_location(module_name, file_path)
 monitor = importlib.util.module_from_spec(spec)
 sys.modules[module_name] = monitor
 spec.loader.exec_module(monitor)
+import src.ui as ui
 
 class TestParseTcpInfo(unittest.TestCase):
     def test_parse_tcp_info_all_metrics(self):
@@ -401,6 +402,49 @@ class TestUtilityFunctions(unittest.TestCase):
 
         # Negative cases (edge case, shouldn't really happen but code allows it)
         self.assertEqual(monitor.fmt_rate(-100), "-100B")
+
+class TestTruncFunction(unittest.TestCase):
+    def test_trunc_empty_or_small_width(self):
+        self.assertEqual(ui.trunc("hello", 0), "")
+        self.assertEqual(ui.trunc("hello", 1), "")
+        self.assertEqual(monitor.trunc("hello", 0), "")
+        self.assertEqual(monitor.trunc("hello", 1), "")
+
+    def test_trunc_fits_within_width(self):
+        # w=6, mx=5, len(s)=5 <= 5
+        self.assertEqual(ui.trunc("hello", 6), "hello")
+        self.assertEqual(monitor.trunc("hello", 6), "hello")
+        # w=10, mx=9, len(s)=5 <= 9
+        self.assertEqual(ui.trunc("hello", 10), "hello")
+        self.assertEqual(monitor.trunc("hello", 10), "hello")
+
+    def test_trunc_short_max_width_no_ellipsis(self):
+        # mx < 10 branch
+        # w=5, mx=4 < 10, len(s)=10 > 4
+        self.assertEqual(ui.trunc("1234567890", 5), "1234")
+        self.assertEqual(monitor.trunc("1234567890", 5), "1234")
+
+        # w=10, mx=9 < 10, len(s)=10 > 9
+        self.assertEqual(ui.trunc("1234567890", 10), "123456789")
+        self.assertEqual(monitor.trunc("1234567890", 10), "123456789")
+
+    def test_trunc_long_width_with_ellipsis(self):
+        # mx >= 10 branch
+        # w=11, mx=10 >= 10, len(s)=20
+        # h = (10 - 3) // 2 = 7 // 2 = 3
+        # return s[:3] + "…" + s[-(10 - 3 - 3):] = s[:3] + "…" + s[-4:]
+        self.assertEqual(ui.trunc("abcdefghijklmnopqrst", 11), "abc...qrst")
+        self.assertEqual(monitor.trunc("abcdefghijklmnopqrst", 11), "abc...qrst")
+
+        # test with an odd max width
+        # w=12, mx=11 >= 10, len(s)=20
+        # h = (11 - 3) // 2 = 8 // 2 = 4
+        # return s[:4] + "…" + s[-(11 - 3 - 4):] = s[:4] + "…" + s[-4:]
+        self.assertEqual(ui.trunc("abcdefghijklmnopqrst", 12), "abcd...qrst")
+        self.assertEqual(monitor.trunc("abcdefghijklmnopqrst", 12), "abcd...qrst")
+
+        # test edge case where string is just slightly longer than mx
+        self.assertEqual(ui.trunc("12345678901", 11), "123...8901")
 
 if __name__ == "__main__":
     unittest.main()
