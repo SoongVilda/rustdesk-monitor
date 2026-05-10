@@ -431,10 +431,21 @@ def print_dashboard(conns, nat_label, direct_port):
     print(f"{BORDER}├{'─' * (tw - 2)}┤{R}")
 
     # │ Summary stats │
-    d_n = sum(1 for c in active if "Direct" in c['type'])
-    r_n = sum(1 for c in active if "Relay" in c['type'])
-    rn_n = sum(1 for c in active if "Rendezvous" in c['type'])
-    rtts = [c['rtt'] for c in active if c.get('rtt') is not None]
+    d_n = 0
+    r_n = 0
+    rn_n = 0
+    rtts = []
+    for c in active:
+        ctype = c['type']
+        if "Direct" in ctype:
+            d_n += 1
+        elif "Relay" in ctype:
+            r_n += 1
+        elif "Rendezvous" in ctype:
+            rn_n += 1
+        rtt = c.get('rtt')
+        if rtt is not None:
+            rtts.append(rtt)
 
     pills = [
         _stat_pill("Sessions:", str(len(active))),
