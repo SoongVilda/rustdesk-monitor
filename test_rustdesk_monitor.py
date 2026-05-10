@@ -59,6 +59,40 @@ class TestParseTcpInfo(unittest.TestCase):
         self.assertEqual(cwnd, 10)
 
 
+class TestRenderSparkline(unittest.TestCase):
+    def test_render_sparkline_empty(self):
+        self.assertEqual(monitor.render_sparkline([]), "")
+
+    def test_render_sparkline_single(self):
+        self.assertEqual(monitor.render_sparkline([10]), "▁")
+
+    def test_render_sparkline_flat(self):
+        self.assertEqual(monitor.render_sparkline([10, 10, 10]), "▁▁▁")
+
+    def test_render_sparkline_truncation(self):
+        # 12 elements, default width is 10, so it should only take last 10
+        self.assertEqual(len(monitor.render_sparkline([1]*12)), 10)
+
+    def test_render_sparkline_custom_width(self):
+        self.assertEqual(len(monitor.render_sparkline([1]*12, width=5)), 5)
+
+    def test_render_sparkline_ascending(self):
+        # 8 characters in SPARK_CHARS: "▁▂▃▄▅▆▇█"
+        vals = [0, 1, 2, 3, 4, 5, 6, 7]
+        self.assertEqual(monitor.render_sparkline(vals), "▁▂▃▄▅▆▇█")
+
+    def test_render_sparkline_descending(self):
+        vals = [7, 6, 5, 4, 3, 2, 1, 0]
+        self.assertEqual(monitor.render_sparkline(vals), "█▇▆▅▄▃▂▁")
+
+    def test_render_sparkline_mixed(self):
+        vals = [0, 7, 0, 7]
+        self.assertEqual(monitor.render_sparkline(vals), "▁█▁█")
+
+    def test_render_sparkline_floats(self):
+        vals = [0.0, 3.5, 7.0]
+        self.assertEqual(monitor.render_sparkline(vals), "▁▄█")
+
 class TestAnsiFunctions(unittest.TestCase):
     def test_ansi_len(self):
         # Basic cases
