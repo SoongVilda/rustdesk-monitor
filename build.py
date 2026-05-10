@@ -53,9 +53,6 @@ def build():
         for block in combined_code:
             f.write(block + "\n\n")
 
-        f.write('if __name__ == "__main__":\n')
-        f.write('    main()\n')
-
     print(f"Successfully built {out_file}")
 
 if __name__ == "__main__":
