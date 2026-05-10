@@ -14,6 +14,51 @@ monitor = importlib.util.module_from_spec(spec)
 sys.modules[module_name] = monitor
 spec.loader.exec_module(monitor)
 
+class TestParseTcpInfo(unittest.TestCase):
+    def test_parse_tcp_info_all_metrics(self):
+        line = " rtt:10.5/5.2 cwnd:10 retrans:1/2 bytes_sent:1000 bytes_received:2000"
+        rtt, jitter, cwnd, retrans, bsent, brecv = monitor.parse_tcp_info(line)
+        self.assertEqual(rtt, 10.5)
+        self.assertEqual(jitter, 5.2)
+        self.assertEqual(cwnd, 10)
+        self.assertEqual(retrans, 2)
+        self.assertEqual(bsent, 1000)
+        self.assertEqual(brecv, 2000)
+
+    def test_parse_tcp_info_partial_metrics(self):
+        line = " rtt:10.5/5.2 cwnd:10"
+        rtt, jitter, cwnd, retrans, bsent, brecv = monitor.parse_tcp_info(line)
+        self.assertEqual(rtt, 10.5)
+        self.assertEqual(jitter, 5.2)
+        self.assertEqual(cwnd, 10)
+        self.assertIsNone(retrans)
+        self.assertIsNone(bsent)
+        self.assertIsNone(brecv)
+
+    def test_parse_tcp_info_no_metrics(self):
+        line = " some random string without metrics"
+        rtt, jitter, cwnd, retrans, bsent, brecv = monitor.parse_tcp_info(line)
+        self.assertIsNone(rtt)
+        self.assertIsNone(jitter)
+        self.assertIsNone(cwnd)
+        self.assertIsNone(retrans)
+        self.assertIsNone(bsent)
+        self.assertIsNone(brecv)
+
+    def test_parse_tcp_info_integer_rtt(self):
+        line = " rtt:10/5 cwnd:10"
+        rtt, jitter, cwnd, retrans, bsent, brecv = monitor.parse_tcp_info(line)
+        self.assertEqual(rtt, 10.0)
+        self.assertEqual(jitter, 5.0)
+
+    def test_parse_tcp_info_malformed_rtt(self):
+        line = " rtt:10.5/ cwnd:10" # missing jitter
+        rtt, jitter, cwnd, retrans, bsent, brecv = monitor.parse_tcp_info(line)
+        self.assertIsNone(rtt)
+        self.assertIsNone(jitter)
+        self.assertEqual(cwnd, 10)
+
+
 class TestAnsiFunctions(unittest.TestCase):
     def test_ansi_len(self):
         # Basic cases
