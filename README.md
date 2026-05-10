@@ -59,10 +59,29 @@ The UI refreshes every 0.5s by default. Press `Ctrl+C` to exit.
 
 ### Available Options
 
-* `-p`, `--port`: Specify a custom direct access port if you are using a branded client and the config reader fails.
-* `-r`, `--refresh`: Set the refresh interval in seconds (default: 0.5).
-* `--json`: Print a one-off JSON snapshot of the current connections.
-* `--log`: Run continuously, outputting NDJSON (New-line Delimited JSON) for piping to log aggregators.
+```text
+usage: rustdesk-monitor [-h] [-j] [-w SECS] [-p NAME] [--log FILE]
+
+RustDesk Connection Monitor v4.0 — real-time dashboard with throughput,
+RTT sparklines, health grading, and connection tracking.
+
+options:
+  -h, --help            show this help message and exit
+  -j, --json            JSON output (single shot, or NDJSON with --watch)
+  -w SECS, --watch SECS
+                        Refresh interval (default: 0.5 for TTY)
+  -p NAME, --process-name NAME
+                        Process name to filter (default: rustdesk)
+  --log FILE            Append NDJSON records to FILE alongside dashboard
+
+EXAMPLES:
+  rustdesk-monitor                     Interactive dashboard
+  rustdesk-monitor -j | jq             JSON snapshot
+  rustdesk-monitor -j -w 1             NDJSON stream every 1s
+  rustdesk-monitor -w 0.25             Fast 250ms refresh
+  rustdesk-monitor --log conn.jsonl    Dashboard + append to log file
+  rustdesk-monitor -p mydesk           Custom-branded client
+```
 
 ## How it works
 
@@ -76,6 +95,18 @@ The monitor relies on standard Linux utilities. It uses `ss -tin` to gather sock
 ## Compatibility
 
 Designed and tested on Linux (specifically Arch/CachyOS). It works out of the box on Debian, Ubuntu, Fedora, and any distribution that provides `iproute2`.
+
+## Testing
+
+To maintain the strict "Zero Dependencies" policy, the test suite relies solely on the standard library's `unittest` module.
+
+The tests are designed to verify both the individual source modules located in the `src/` directory and the final compiled single-file distribution (`rustdesk-monitor.py`). This ensures behavioral consistency regardless of how the code is executed.
+
+To run the test suite, use the following command:
+
+```bash
+python3 -m unittest discover -s tests
+```
 
 ## Contributing
 
