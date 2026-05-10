@@ -16,11 +16,23 @@ spec.loader.exec_module(monitor)
 
 class TestAnsiFunctions(unittest.TestCase):
     def test_ansi_len(self):
+        # Basic cases
         self.assertEqual(monitor.ansi_len("hello"), 5)
         self.assertEqual(monitor.ansi_len("\033[1mhello\033[0m"), 5)
         self.assertEqual(monitor.ansi_len("\033[38;5;84m●\033[0m"), 1)
         self.assertEqual(monitor.ansi_len(""), 0)
         self.assertEqual(monitor.ansi_len("\033[48;5;236m\033[38;5;75m RustDesk \033[0m"), 10)
+
+        # Edge cases and complex codes
+        self.assertEqual(monitor.ansi_len("\033[1m\033[31m\033[42mmulti-ansi\033[0m"), 10)
+        self.assertEqual(monitor.ansi_len("\033[m"), 0) # empty ansi code
+        self.assertEqual(monitor.ansi_len("\033[31m"), 0) # only ansi code
+        self.assertEqual(monitor.ansi_len("\033[38;2;255;0;0mRGB text\033[0m"), 8) # true color ansi
+        self.assertEqual(monitor.ansi_len("text \033[31;1;4mwith\033[0m codes"), 15) # interlaced
+
+        # Invalid/partial ansi codes (regex should ignore them if they don't end in 'm')
+        self.assertEqual(monitor.ansi_len("\033[31partial"), 11)
+        self.assertEqual(monitor.ansi_len("hello\033["), 7)
 
     def test_ansi_center(self):
         # Plain strings
