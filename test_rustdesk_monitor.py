@@ -254,6 +254,31 @@ class TestHealthAndAlerts(unittest.TestCase):
         self.assertTrue(any('1 connection(s) with retransmissions' in a for a in alerts))
         self.assertTrue(any('1 connection(s) with queued data' in a for a in alerts))
 
+    def test_detect_alerts_edge_cases(self):
+        conns = [
+            # Relay but LSTN (should not trigger relay alert)
+            {'type': 'Relay', 'dir': 'LSTN'},
+            # RTT exactly 200 (should not trigger RTT alert)
+            {'type': 'Direct', 'dir': 'OUT', 'rtt': 200},
+            # Retrans exactly 5 (should not trigger retrans alert)
+            {'type': 'Direct', 'dir': 'OUT', 'retrans': 5},
+            # Rx/Tx exactly 0 (should not trigger queued data alert)
+            {'type': 'Direct', 'dir': 'OUT', 'rx': '0', 'tx': '0'},
+        ]
+        alerts = monitor.detect_alerts(conns)
+        self.assertEqual(len(alerts), 0)
+
+    def test_detect_alerts_malformed_data(self):
+        conns = [
+            # Invalid rx/tx that cause ValueError
+            {'type': 'Direct', 'dir': 'IN', 'rx': 'invalid', 'tx': 'invalid'},
+            # Invalid rx/tx that cause TypeError
+            {'type': 'Direct', 'dir': 'IN', 'rx': None, 'tx': None},
+        ]
+        alerts = monitor.detect_alerts(conns)
+        # Should not crash and not trigger queued data alerts
+        self.assertEqual(len(alerts), 0)
+
 class TestUtilityFunctions(unittest.TestCase):
     def test_extract_port(self):
         self.assertEqual(monitor.extract_port("192.168.1.1:12345"), "12345")
