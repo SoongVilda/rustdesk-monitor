@@ -235,6 +235,64 @@ class TestHealthAndAlerts(unittest.TestCase):
             'dir': 'OUT', 'rtt': 250, 'jitter': 20, 'retrans': 10, 'rx': '0', 'tx': '0'
         }), 'F')
 
+    def test_compute_health_edge_cases(self):
+        # Grade A boundary checks (needs rtt < 20, jitter < 5, retrans == 0, queue == 0)
+        # Fail rtt bound (rtt=20)
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 20, 'jitter': 2, 'retrans': 0, 'rx': '0', 'tx': '0'
+        }), 'B')
+        # Fail jitter bound (jitter=5)
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 15, 'jitter': 5, 'retrans': 0, 'rx': '0', 'tx': '0'
+        }), 'B')
+        # Fail queue bound (q > 0)
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 15, 'jitter': 2, 'retrans': 0, 'rx': '1', 'tx': '0'
+        }), 'B')
+
+        # Grade B boundary checks (needs rtt < 50, retrans <= 2)
+        # Fail rtt bound (rtt=50)
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 50, 'jitter': 2, 'retrans': 0, 'rx': '0', 'tx': '0'
+        }), 'C')
+        # Fail retrans bound (retrans=3)
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 45, 'jitter': 2, 'retrans': 3, 'rx': '0', 'tx': '0'
+        }), 'C')
+
+        # Grade C boundary checks (needs rtt < 100)
+        # Fail rtt bound (rtt=100)
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 100, 'jitter': 2, 'retrans': 0, 'rx': '0', 'tx': '0'
+        }), 'D')
+
+        # Grade D boundary checks (needs rtt < 200)
+        # Fail rtt bound (rtt=200)
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 200, 'jitter': 2, 'retrans': 0, 'rx': '0', 'tx': '0'
+        }), 'F')
+
+    def test_compute_health_exception_handling(self):
+        # Trigger ValueError due to invalid string for int() conversion
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 15, 'jitter': 2, 'retrans': 0, 'rx': 'invalid', 'tx': '0'
+        }), 'A')
+
+        # Trigger TypeError due to passing None for int() conversion
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 15, 'jitter': 2, 'retrans': 0, 'rx': None, 'tx': '0'
+        }), 'A')
+
+        # Both invalid
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 15, 'jitter': 2, 'retrans': 0, 'rx': None, 'tx': 'invalid'
+        }), 'A')
+
+        # Missing rx and tx (defaults to 0,0 in the get)
+        self.assertEqual(monitor.compute_health({
+            'dir': 'OUT', 'rtt': 15, 'jitter': 2, 'retrans': 0
+        }), 'A')
+
     def test_detect_alerts(self):
         # Empty case
         self.assertEqual(monitor.detect_alerts([]), [])
