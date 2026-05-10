@@ -42,7 +42,7 @@ def read_rustdesk_config():
             if in_opts:
                 m = re.match(r'direct-access-port\s*=\s*"?(\d+)"?', s)
                 if m and int(m.group(1)) > 0: cfg["direct_port"] = m.group(1)
-    except Exception: pass
+    except (OSError, ValueError): pass
     return cfg
 
 NAT_LABELS = {0: "Unknown", 1: "Asymmetric", 2: "Symmetric"}
@@ -143,12 +143,10 @@ def parse_connections(process_name, direct_port):
 
         proc_blob = "".join(parts[6:]) if len(parts) > 6 else ""
         pid = pname_parsed = ""
-        if "pid=" in proc_blob:
-            try:
-                pid = proc_blob.split("pid=")[1].split(",")[0]
-                if 'users:(("' in proc_blob:
-                    pname_parsed = proc_blob.split('users:(("')[1].split('"')[0]
-            except Exception: pass
+        m_pid = re.search(r'pid=(\d+)', proc_blob)
+        if m_pid: pid = m_pid.group(1)
+        m_pname = re.search(r'users:\(\("([^"]+)"', proc_blob)
+        if m_pname: pname_parsed = m_pname.group(1)
 
         conns.append({
             "proto": proto, "state": state, "rx": rx, "tx": tx,
