@@ -96,7 +96,7 @@ def trunc(s, w):
     if len(s) <= mx: return s
     if mx < 10: return s[:mx]
     h = (mx - 3) // 2
-    return s[:h] + "…" + s[-(mx - 3 - h):]
+    return s[:h] + "..." + s[-(mx - 3 - h):]
 
 def _border_line(tw, title="", char="─"):
     iw = tw - 2

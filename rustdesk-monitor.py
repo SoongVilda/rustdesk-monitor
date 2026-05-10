@@ -345,7 +345,7 @@ def trunc(s, w):
     if len(s) <= mx: return s
     if mx < 10: return s[:mx]
     h = (mx - 3) // 2
-    return s[:h] + "…" + s[-(mx - 3 - h):]
+    return s[:h] + "..." + s[-(mx - 3 - h):]
 
 def _border_line(tw, title="", char="─"):
     iw = tw - 2
@@ -372,10 +372,10 @@ def print_dashboard(conns, nat_label, direct_port):
     il = max([len(c['local']) for c in active] + [5]) + 1 if active else 6
     ip = max([len(c['peer']) for c in active] + [4]) + 1 if active else 5
     max_type = max([len(c['type']) for c in active] + [16]) if active else 16
-    
+
     fixed_cols_width = 3 + 5 + 4 + 8 + 11 + 12 + 15 + 8 + max_type
     needed_tw = fixed_cols_width + il + ip
-    
+
     tw = min(raw_tw, max(110, needed_tw))
 
     print(f"{BORDER}╭{'─' * (tw - 2)}╮{R}")
