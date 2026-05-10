@@ -338,13 +338,33 @@ class TestHealthAndAlerts(unittest.TestCase):
         self.assertEqual(len(alerts), 0)
 
 class TestUtilityFunctions(unittest.TestCase):
-    def test_extract_port(self):
+    def test_extract_port_ipv4(self):
         self.assertEqual(monitor.extract_port("192.168.1.1:12345"), "12345")
+        self.assertEqual(monitor.extract_port("0.0.0.0:21118"), "21118")
+        self.assertEqual(monitor.extract_port("127.0.0.1:80"), "80")
+
+    def test_extract_port_ipv6(self):
         self.assertEqual(monitor.extract_port("[fe80::1]:8080"), "8080")
+        self.assertEqual(monitor.extract_port("[::1]:443"), "443")
+        self.assertEqual(monitor.extract_port("[2001:db8:85a3::8a2e:370:7334]:22"), "22")
+        self.assertEqual(monitor.extract_port("::1:8080"), "8080") # no brackets but with port, may fail or not depending on implementation, actually rsplit(":", 1)[-1] handles it as 8080
+
+    def test_extract_port_wildcards(self):
         self.assertEqual(monitor.extract_port("*:*"), "*")
         self.assertEqual(monitor.extract_port("127.0.0.1:*"), "*")
+        self.assertEqual(monitor.extract_port("[::1]:*"), "*")
+        self.assertEqual(monitor.extract_port("*"), "") # no colon, no port
+
+    def test_extract_port_no_port(self):
         self.assertEqual(monitor.extract_port("no_port_here"), "")
-        self.assertEqual(monitor.extract_port("0.0.0.0:21118"), "21118")
+        self.assertEqual(monitor.extract_port("192.168.1.1"), "")
+        self.assertEqual(monitor.extract_port("localhost"), "")
+
+    def test_extract_port_edge_cases(self):
+        self.assertEqual(monitor.extract_port(""), "")
+        self.assertEqual(monitor.extract_port(":"), "") # returns "" since string is ":" -> ["", ""] -> ""
+        self.assertEqual(monitor.extract_port("127.0.0.1:"), "")
+        self.assertEqual(monitor.extract_port("malformed:string:with:many:colons:1234"), "1234")
 
     def test_fmt_duration(self):
         self.assertEqual(monitor.fmt_duration(0), "0s")
