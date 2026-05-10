@@ -76,18 +76,24 @@ def extract_port(addr):
     if "]:" in addr: return addr.rsplit(":", 1)[-1]
     return addr.rsplit(":", 1)[-1] if ":" in addr else ""
 
+_RE_RTT = re.compile(r'rtt:(\d+(?:\.\d+)?)/(\d+(?:\.\d+)?)')
+_RE_CWND = re.compile(r'cwnd:(\d+)')
+_RE_RETRANS = re.compile(r'retrans:\d+/(\d+)')
+_RE_BSENT = re.compile(r'bytes_sent:(\d+)')
+_RE_BRECV = re.compile(r'bytes_received:(\d+)')
+
 def parse_tcp_info(line):
     """Extract rtt, jitter, cwnd, retrans, bytes_sent, bytes_received from ss -i."""
     rtt = jitter = cwnd = retrans = bsent = brecv = None
-    m = re.search(r'rtt:(\d+(?:\.\d+)?)/(\d+(?:\.\d+)?)', line)
+    m = _RE_RTT.search(line)
     if m: rtt, jitter = float(m.group(1)), float(m.group(2))
-    m = re.search(r'cwnd:(\d+)', line)
+    m = _RE_CWND.search(line)
     if m: cwnd = int(m.group(1))
-    m = re.search(r'retrans:\d+/(\d+)', line)
+    m = _RE_RETRANS.search(line)
     if m: retrans = int(m.group(1))
-    m = re.search(r'bytes_sent:(\d+)', line)
+    m = _RE_BSENT.search(line)
     if m: bsent = int(m.group(1))
-    m = re.search(r'bytes_received:(\d+)', line)
+    m = _RE_BRECV.search(line)
     if m: brecv = int(m.group(1))
     return rtt, jitter, cwnd, retrans, bsent, brecv
 
