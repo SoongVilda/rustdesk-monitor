@@ -49,7 +49,8 @@ def read_rustdesk_config():
             if in_opts:
                 m = re.match(r'direct-access-port\s*=\s*"?(\d+)"?', s)
                 if m and int(m.group(1)) > 0: cfg["direct_port"] = m.group(1)
-    except (OSError, ValueError): pass
+    except (OSError, ValueError) as e:
+        print(f"Warning: failed to read config {path}: {e}", file=sys.stderr)
     return cfg
 
 NAT_LABELS = {0: "Unknown", 1: "Asymmetric", 2: "Symmetric"}
