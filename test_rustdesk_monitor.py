@@ -239,12 +239,31 @@ class TestUtilityFunctions(unittest.TestCase):
         self.assertEqual(monitor.fmt_duration(7325), "2h2m")
 
     def test_fmt_rate(self):
+        # None case
         self.assertEqual(monitor.fmt_rate(None), "—")
+
+        # Bytes cases
+        self.assertEqual(monitor.fmt_rate(0), "0B")
+        self.assertEqual(monitor.fmt_rate(1), "1B")
         self.assertEqual(monitor.fmt_rate(500), "500B")
+        self.assertEqual(monitor.fmt_rate(1023), "1023B")
+
+        # Kilobytes cases
         self.assertEqual(monitor.fmt_rate(1024), "1.0K")
         self.assertEqual(monitor.fmt_rate(1536), "1.5K")
+        self.assertEqual(monitor.fmt_rate(1048575), "1024.0K")
+
+        # Megabytes cases
         self.assertEqual(monitor.fmt_rate(1048576), "1.0M")
         self.assertEqual(monitor.fmt_rate(1572864), "1.5M")
+        self.assertEqual(monitor.fmt_rate(1024 * 1024 * 1024), "1024.0M") # 1GB
+
+        # Float inputs
+        self.assertEqual(monitor.fmt_rate(500.5), "500B") # 500.5 rounds to 500 in python string format with .0f due to banker's rounding
+        self.assertEqual(monitor.fmt_rate(1024.0), "1.0K")
+
+        # Negative cases (edge case, shouldn't really happen but code allows it)
+        self.assertEqual(monitor.fmt_rate(-100), "-100B")
 
 if __name__ == "__main__":
     unittest.main()
