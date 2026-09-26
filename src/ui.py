@@ -332,7 +332,7 @@ def _trend_text(c, color, width):
 
 
 def _throughput_text(c):
-    if c.get("tx_rate") is not None:
+    if c.get("tx_rate") is not None or c.get("rx_rate") is not None:
         tx_r = fmt_rate(c["tx_rate"])
         rx_r = fmt_rate(c["rx_rate"])
         return f"\033[38;5;114m↑{tx_r}  \033[38;5;75m↓{rx_r}{R}"

@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import sys
 import time
 
@@ -58,7 +59,11 @@ def build_arg_parser():
 
 
 def parse_args(argv=None):
-    return build_arg_parser().parse_args(argv)
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    if args.watch is not None and not math.isfinite(args.watch):
+        parser.error("--watch must be a finite number of seconds")
+    return args
 
 
 def load_runtime_config():

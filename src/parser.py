@@ -4,7 +4,7 @@ import sys
 
 from src.config import SERVER_PORT_MAP
 
-SS_COMMAND = ["ss", "-tuipn"]
+SS_COMMAND = ["ss", "-atuipn"]
 
 _RE_RTT = re.compile(r"rtt:(\d+(?:\.\d+)?)/(\d+(?:\.\d+)?)")
 _RE_CWND = re.compile(r"cwnd:(\d+)")
@@ -60,15 +60,20 @@ def run_ss():
         return subprocess.check_output(
             SS_COMMAND,
             universal_newlines=True,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
     except FileNotFoundError:
         print(
             "\033[1;31mError:\033[0m 'ss' not found. Install iproute2.", file=sys.stderr
         )
         sys.exit(1)
-    except subprocess.CalledProcessError:
-        return ""
+    except subprocess.CalledProcessError as e:
+        detail = (e.stderr or "").strip()
+        message = f"Error: 'ss' failed (exit status {e.returncode})"
+        if detail:
+            message += f": {detail}"
+        print(message, file=sys.stderr)
+        sys.exit(1)
 
 
 def parse_connections(process_name, direct_port):

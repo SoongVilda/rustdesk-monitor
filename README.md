@@ -33,7 +33,7 @@ sudo install -m 755 rustdesk-monitor.py /usr/local/bin/rustdesk-monitor
 
 ## Architecture & Unix Philosophy
 
-The codebase has been structured to adhere strictly to the **Unix Philosophy**, particularly emphasizing the *Rule of Modularity* and the *Rule of Separation*.
+The source separates configuration, socket collection, connection tracking, and terminal rendering. The build combines these modules into one standalone script with no third-party Python dependencies.
 
 To achieve this while maintaining a "zero dependencies" and single-file download for users, the source code is broken down into separate modules located in the `src/` directory:
 * `src/config.py` - Configuration loading (Data)
@@ -56,6 +56,9 @@ rustdesk-monitor
 > If you want to monitor the system-wide RustDesk service, you may need to run the script with `sudo` so that `ss` can access process names and PIDs.
 
 The UI refreshes every 0.5s by default. Press `Ctrl+C` to exit.
+`--watch` accepts finite numbers of seconds; values below 0.1 are clamped to 0.1.
+If `ss` is missing or fails, the monitor reports the error on stderr and exits
+with status 1 instead of reporting an empty successful snapshot.
 
 ### Available Options
 
@@ -85,12 +88,19 @@ EXAMPLES:
 
 ## How it works
 
-The monitor relies on standard Linux utilities. It uses `ss -tin` to gather socket statistics, extracting byte counts, RTT, and connection states. It maps the active ports back to RustDesk's internal network architecture:
+The monitor uses `ss -atuipn` to gather TCP and UDP sockets, including listeners,
+with numeric addresses, process details, and available TCP statistics. It maps
+the active ports back to RustDesk's internal network architecture:
 * `21114` - API Server
 * `21116` - Rendezvous (Signaling)
 * `21117` - Relay
 * `21118` - Direct Access (or WS Rendezvous)
-* `21119` - LAN Discovery
+* `21119` - WS Relay
+
+These are the standard server ports; see the [RustDesk server documentation](https://rustdesk.com/docs/en/self-host/rustdesk-server-oss/install/).
+The direct-access port is read from `RustDesk2.toml` when configured. Unavailable
+traffic counters remain unknown (`null` in JSON, `—` in the dashboard); TX and RX
+rates are calculated independently when consecutive samples have the needed counter.
 
 ## Compatibility
 
@@ -102,11 +112,17 @@ To maintain the strict "Zero Dependencies" policy, the test suite relies solely 
 
 The tests are designed to verify both the individual source modules located in the `src/` directory and the final compiled single-file distribution (`rustdesk-monitor.py`). This ensures behavioral consistency regardless of how the code is executed.
 
-To run the test suite, use the following command:
+After editing `src/`, rebuild the standalone script and run the test suite:
 
 ```bash
+python3 build.py
 python3 -m unittest discover -s tests
 ```
+
+Commit the regenerated `rustdesk-monitor.py` alongside source changes. GitHub
+Actions runs the tests on Python 3.10 and 3.14 and checks that rebuilding leaves
+the committed standalone script unchanged. Both CLI entry points are also checked
+with `--help`.
 
 ## Contributing
 

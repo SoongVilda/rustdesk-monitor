@@ -1,3 +1,5 @@
+import io
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -63,6 +65,29 @@ class TestParseTcpInfoCompiled(BaseTestParseTcpInfo, unittest.TestCase):
 
 
 class BaseTestParseConnections:
+    @patch('subprocess.check_output', return_value='')
+    def test_collection_requests_listening_and_connected_sockets(self, mock_ss):
+        self.target.run_ss()
+        args = mock_ss.call_args.args[0]
+        self.assertTrue('--all' in args or any(
+            arg.startswith('-') and not arg.startswith('--') and 'a' in arg
+            for arg in args
+        ))
+
+    @patch('subprocess.check_output')
+    def test_collection_failure_reports_error_and_exits(self, mock_ss):
+        mock_ss.side_effect = subprocess.CalledProcessError(
+            2, ['ss'], stderr='Operation not permitted\n'
+        )
+        stderr = io.StringIO()
+        with patch('sys.stderr', stderr):
+            with self.assertRaises(SystemExit) as caught:
+                self.target.run_ss()
+        self.assertNotEqual(caught.exception.code, 0)
+        self.assertIn('ss', stderr.getvalue())
+        self.assertIn('2', stderr.getvalue())
+        self.assertIn('Operation not permitted', stderr.getvalue())
+
     @patch('subprocess.check_output')
     def test_parse_connections_basic(self, mock_ss):
         mock_ss.return_value = """Netid State Recv-Q Send-Q Local Address:Port Peer Address:Port Process

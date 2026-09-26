@@ -108,6 +108,17 @@ class TestAnsiFunctionsCompiled(BaseTestAnsiFunctions, unittest.TestCase):
 
 
 class BaseTestFmtUtils:
+    def test_throughput_with_missing_direction(self):
+        for tx, rx, expected in (
+            (None, 100, "↑—  ↓100B"),
+            (100, None, "↑100B  ↓—"),
+            (0, 0, "↑0B  ↓0B"),
+            (None, None, "—"),
+        ):
+            with self.subTest(tx=tx, rx=rx):
+                rendered = self.target._throughput_text({'tx_rate': tx, 'rx_rate': rx})
+                self.assertEqual(self.target.ANSI_RE.sub('', rendered), expected)
+
     def test_fmt_duration(self):
         self.assertEqual(self.target.fmt_duration(0), "0s")
         self.assertEqual(self.target.fmt_duration(45), "45s")
