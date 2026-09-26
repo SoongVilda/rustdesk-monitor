@@ -45,6 +45,10 @@ def detect_alerts(conns):
         if retrans is not None and retrans > 5:
             n_retrans += 1
 
+        # TCP listener queues describe the connection backlog, not byte counts.
+        if c.get("proto") == "tcp" and c.get("state") == "LISTEN":
+            continue
+
         try:
             if int(c.get("rx", 0)) > 0 or int(c.get("tx", 0)) > 0:
                 n_queued += 1
@@ -102,15 +106,13 @@ class ConnectionTracker:
 
             bs = c.get("bytes_sent")
             br = c.get("bytes_received")
-            if (
-                bs is not None
-                and st["prev_bsent"] is not None
-                and st["prev_t"] is not None
-            ):
+            if st["prev_t"] is not None:
                 dt = now - st["prev_t"]
                 if dt > 0.05:
-                    c["tx_rate"] = max(0, bs - st["prev_bsent"]) / dt
-                    c["rx_rate"] = max(0, br - (st["prev_brecv"] or 0)) / dt
+                    if bs is not None and st["prev_bsent"] is not None:
+                        c["tx_rate"] = max(0, bs - st["prev_bsent"]) / dt
+                    if br is not None and st["prev_brecv"] is not None:
+                        c["rx_rate"] = max(0, br - st["prev_brecv"]) / dt
 
             st["prev_bsent"] = bs
             st["prev_brecv"] = br

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from tests.base import load_compiled_monitor
 import src.tracker as src_tracker
@@ -7,6 +8,26 @@ compiled_monitor = load_compiled_monitor()
 
 
 class BaseTestHealthAndAlerts:
+    def test_tracker_rates_with_missing_counters(self):
+        for first_sent, next_sent, first_received, next_received, tx, rx in (
+            (100, 200, None, None, 100, None),
+            (None, None, 100, 200, None, 100),
+            (100, 200, None, 200, 100, None),
+            (100, None, 100, 200, None, 100),
+            (100, 200, 100, 300, 100, 200),
+        ):
+            with self.subTest(counters=(first_sent, next_sent, first_received, next_received)):
+                tracker = self.target.ConnectionTracker()
+                first = {'local': '127.0.0.1:12345', 'peer': '127.0.0.1:21117',
+                         'bytes_sent': first_sent, 'bytes_received': first_received}
+                second = dict(first, bytes_sent=next_sent, bytes_received=next_received)
+                with patch('time.time', side_effect=[100, 101]):
+                    tracker.update([first])
+                    result = tracker.update([second])[0]
+                self.assertEqual(result['tx_rate'], tx)
+                self.assertEqual(result['rx_rate'], rx)
+                self.assertEqual(result['bytes_received'], next_received)
+
     def test_compute_health(self):
         self.assertEqual(self.target.compute_health({'dir': 'LSTN'}), '—')
         self.assertEqual(self.target.compute_health({'dir': 'IN', 'rtt': None}), '?')
@@ -108,6 +129,17 @@ class BaseTestHealthAndAlerts:
         ]
         alerts = self.target.detect_alerts(conns)
         self.assertEqual(len(alerts), 0)
+
+    def test_listener_backlog_is_not_queued_data(self):
+        listener = {'proto': 'tcp', 'state': 'LISTEN', 'type': 'Direct Access (Listening)',
+                    'dir': 'LSTN', 'rx': '0', 'tx': '128'}
+        self.assertEqual(self.target.detect_alerts([listener]), [])
+
+        established = dict(listener, state='ESTAB', dir='IN', tx='10')
+        udp = dict(listener, proto='udp', state='UNCONN', rx='100', tx='0')
+        alerts = self.target.detect_alerts([listener, established, udp])
+        self.assertEqual(len(alerts), 1)
+        self.assertIn('2 connection(s) with queued data', alerts[0])
 
 
 class TestHealthAndAlertsSrc(BaseTestHealthAndAlerts, unittest.TestCase):

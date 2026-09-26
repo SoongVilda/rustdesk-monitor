@@ -1,4 +1,6 @@
+import io
 import unittest
+from contextlib import redirect_stderr
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -6,6 +8,34 @@ import src.main as src_main
 from tests.base import load_compiled_monitor
 
 compiled_monitor = load_compiled_monitor()
+
+
+class BaseTestArguments:
+    def test_rejects_nonfinite_watch_intervals(self):
+        for value in ("nan", "inf", "-inf", "Infinity"):
+            with self.subTest(value=value):
+                stderr = io.StringIO()
+                with redirect_stderr(stderr), self.assertRaises(SystemExit) as error:
+                    self.target.parse_args(["--watch=" + value])
+                self.assertEqual(error.exception.code, 2)
+                self.assertIn("--watch", stderr.getvalue())
+                self.assertIn("finite", stderr.getvalue())
+
+    def test_finite_watch_intervals_keep_existing_minimum(self):
+        for value, expected in (("-1", 0.1), ("0", 0.1), ("0.01", 0.1), ("2", 2)):
+            with self.subTest(value=value):
+                args = self.target.parse_args(["--watch=" + value])
+                self.assertEqual(self.target.refresh_interval(args.watch), expected)
+
+
+class TestArgumentsSrc(BaseTestArguments, unittest.TestCase):
+    def setUp(self):
+        self.target = src_main
+
+
+class TestArgumentsCompiled(BaseTestArguments, unittest.TestCase):
+    def setUp(self):
+        self.target = compiled_monitor
 
 
 class BaseTestDashboardLoop:
