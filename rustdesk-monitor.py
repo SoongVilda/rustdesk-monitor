@@ -163,7 +163,7 @@ class ConnectionTracker:
         self._state = {}
 
     def _key(self, c):
-        return (c["local"], c["peer"])
+        return (c.get("proto"), c["local"], c["peer"])
 
     def update(self, conns):
         now = time.time()
@@ -367,18 +367,27 @@ def _parse_socket_parts(parts, tcp_info_line, direct_port):
     }
 
 def classify_connection(proto, state, local_port, peer_port, direct_port):
-    if state in ("LISTEN", "UNCONN"):
+    if proto == "tcp" and state == "LISTEN":
         return _classify_listener(local_port, direct_port)
 
-    if local_port == direct_port and state == "ESTAB":
+    if proto == "tcp" and local_port == direct_port and state == "ESTAB":
         return "IN", "Direct (Incoming Peer)", "\033[1;32m"
 
-    if peer_port in SERVER_PORT_MAP:
+    if peer_port in SERVER_PORT_MAP and (
+        proto == "tcp" or (proto == "udp" and peer_port == "21116")
+    ):
         server = SERVER_PORT_MAP[peer_port]
         return "OUT", server["type"], server["color"]
 
-    if proto == "udp" and peer_port not in ("*", ""):
-        return "P2P", "Direct (UDP Hole-Punch)", "\033[1;32m"
+    if proto == "udp":
+        # WebRTC uses bound sendto sockets, including ICE/STUN/TURN traffic.
+        # ss cannot identify their selected transport or whether it is relayed.
+        conn_type = (
+            "UDP (Unconnected)"
+            if peer_port in ("*", "")
+            else "UDP (Transport Unknown)"
+        )
+        return "?", conn_type, "\033[38;5;245m"
 
     conn_type = "Direct (TCP P2P)" if proto == "tcp" else "Unknown"
     color = "\033[1;32m" if proto == "tcp" else "\033[0m"
@@ -615,7 +624,7 @@ def _connection_summary(active):
 def _print_summary(tw, active, nat_label, direct_port):
     direct_count, relay_count, rendezvous_count, rtts = _connection_summary(active)
     pills = [
-        _stat_pill("Sessions:", str(len(active))),
+        _stat_pill("Sockets:", str(len(active))),
         _stat_pill(
             "Direct:", str(direct_count), "\033[38;5;84m" if direct_count else VAL
         ),
@@ -765,8 +774,8 @@ def _print_active_table(tw, active, layout):
     for c in active:
         print(_active_row(c, layout))
 
-def _print_active_sessions(tw, active, il, ip, max_type):
-    print(_border_line(tw, "Active Sessions"))
+def _print_active_sockets(tw, active, il, ip, max_type):
+    print(_border_line(tw, "Connection Sockets"))
     print()
 
     layout = _active_layout(tw, il, ip, max_type)
@@ -775,7 +784,7 @@ def _print_active_sessions(tw, active, il, ip, max_type):
         print()
         return
 
-    empty_msg = f"{DIM}○  No active RustDesk sessions{R}"
+    empty_msg = f"{DIM}○  No RustDesk connection sockets{R}"
     print(f"\n  {ansi_center(empty_msg, tw - 4)}\n")
 
 def _print_infrastructure(tw, infra):
@@ -817,7 +826,7 @@ def print_dashboard(conns, nat_label, direct_port):
     _print_dashboard_header(tw)
     _print_summary(tw, active, nat_label, direct_port)
     _print_alerts(tw, conns)
-    _print_active_sessions(tw, active, il, ip, max_type)
+    _print_active_sockets(tw, active, il, ip, max_type)
     _print_infrastructure(tw, infra)
     _print_legend(tw)
 

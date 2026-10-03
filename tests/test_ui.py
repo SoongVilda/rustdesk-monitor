@@ -1,6 +1,10 @@
+import io
 import unittest
+from contextlib import redirect_stdout
 
 from tests.base import load_compiled_monitor
+import src.parser as src_parser
+import src.tracker as src_tracker
 import src.ui as src_ui
 
 compiled_monitor = load_compiled_monitor()
@@ -108,6 +112,28 @@ class TestAnsiFunctionsCompiled(BaseTestAnsiFunctions, unittest.TestCase):
 
 
 class BaseTestFmtUtils:
+    def test_udp_sockets_are_visible_without_inflating_direct_or_relay_counts(self):
+        output = (
+            'udp UNCONN 0 0 0.0.0.0:40000 0.0.0.0:* '
+            'users:(("rustdesk",pid=1234,fd=5))\n'
+            'udp ESTAB 0 0 192.0.2.1:40001 198.51.100.1:3478 '
+            'users:(("rustdesk",pid=1234,fd=6))\n'
+        )
+        conns = src_tracker.ConnectionTracker().update(
+            src_parser.parse_ss_output(output, 'rustdesk', '21118')
+        )
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            self.target.print_dashboard(conns, 'Unknown', '21118')
+        rendered = self.target.ANSI_RE.sub('', stdout.getvalue())
+        socket_table = rendered.split('Infrastructure')[0]
+        self.assertIn('UDP (Unconnected)', socket_table)
+        self.assertIn('UDP (Transport Unknown)', socket_table)
+        self.assertIn('Sockets: 2', rendered)
+        self.assertIn('Direct: 0', rendered)
+        self.assertIn('Relay: 0', rendered)
+        self.assertNotIn('relay connection(s)', rendered)
+
     def test_throughput_with_missing_direction(self):
         for tx, rx, expected in (
             (None, 100, "↑—  ↓100B"),
