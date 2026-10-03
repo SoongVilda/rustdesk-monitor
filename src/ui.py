@@ -220,7 +220,7 @@ def _connection_summary(active):
 def _print_summary(tw, active, nat_label, direct_port):
     direct_count, relay_count, rendezvous_count, rtts = _connection_summary(active)
     pills = [
-        _stat_pill("Sessions:", str(len(active))),
+        _stat_pill("Sockets:", str(len(active))),
         _stat_pill(
             "Direct:", str(direct_count), "\033[38;5;84m" if direct_count else VAL
         ),
@@ -379,8 +379,8 @@ def _print_active_table(tw, active, layout):
         print(_active_row(c, layout))
 
 
-def _print_active_sessions(tw, active, il, ip, max_type):
-    print(_border_line(tw, "Active Sessions"))
+def _print_active_sockets(tw, active, il, ip, max_type):
+    print(_border_line(tw, "Connection Sockets"))
     print()
 
     layout = _active_layout(tw, il, ip, max_type)
@@ -389,7 +389,7 @@ def _print_active_sessions(tw, active, il, ip, max_type):
         print()
         return
 
-    empty_msg = f"{DIM}○  No active RustDesk sessions{R}"
+    empty_msg = f"{DIM}○  No RustDesk connection sockets{R}"
     print(f"\n  {ansi_center(empty_msg, tw - 4)}\n")
 
 
@@ -434,6 +434,6 @@ def print_dashboard(conns, nat_label, direct_port):
     _print_dashboard_header(tw)
     _print_summary(tw, active, nat_label, direct_port)
     _print_alerts(tw, conns)
-    _print_active_sessions(tw, active, il, ip, max_type)
+    _print_active_sockets(tw, active, il, ip, max_type)
     _print_infrastructure(tw, infra)
     _print_legend(tw)

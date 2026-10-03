@@ -160,18 +160,27 @@ def _parse_socket_parts(parts, tcp_info_line, direct_port):
 
 
 def classify_connection(proto, state, local_port, peer_port, direct_port):
-    if state in ("LISTEN", "UNCONN"):
+    if proto == "tcp" and state == "LISTEN":
         return _classify_listener(local_port, direct_port)
 
-    if local_port == direct_port and state == "ESTAB":
+    if proto == "tcp" and local_port == direct_port and state == "ESTAB":
         return "IN", "Direct (Incoming Peer)", "\033[1;32m"
 
-    if peer_port in SERVER_PORT_MAP:
+    if peer_port in SERVER_PORT_MAP and (
+        proto == "tcp" or (proto == "udp" and peer_port == "21116")
+    ):
         server = SERVER_PORT_MAP[peer_port]
         return "OUT", server["type"], server["color"]
 
-    if proto == "udp" and peer_port not in ("*", ""):
-        return "P2P", "Direct (UDP Hole-Punch)", "\033[1;32m"
+    if proto == "udp":
+        # WebRTC uses bound sendto sockets, including ICE/STUN/TURN traffic.
+        # ss cannot identify their selected transport or whether it is relayed.
+        conn_type = (
+            "UDP (Unconnected)"
+            if peer_port in ("*", "")
+            else "UDP (Transport Unknown)"
+        )
+        return "?", conn_type, "\033[38;5;245m"
 
     conn_type = "Direct (TCP P2P)" if proto == "tcp" else "Unknown"
     color = "\033[1;32m" if proto == "tcp" else "\033[0m"

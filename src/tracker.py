@@ -74,7 +74,7 @@ class ConnectionTracker:
         self._state = {}
 
     def _key(self, c):
-        return (c["local"], c["peer"])
+        return (c.get("proto"), c["local"], c["peer"])
 
     def update(self, conns):
         now = time.time()

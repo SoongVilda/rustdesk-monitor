@@ -65,6 +65,61 @@ class TestParseTcpInfoCompiled(BaseTestParseTcpInfo, unittest.TestCase):
 
 
 class BaseTestParseConnections:
+    def test_unconnected_udp_is_visible_without_claiming_a_listener(self):
+        for local_port in ('40000', '21116', '21118'):
+            with self.subTest(local_port=local_port):
+                output = (
+                    f'udp UNCONN 0 0 0.0.0.0:{local_port} 0.0.0.0:* '
+                    'users:(("rustdesk",pid=1234,fd=5))\n'
+                )
+                conns = self.target.parse_ss_output(output, 'rustdesk', '21118')
+                self.assertEqual(len(conns), 1)
+                self.assertEqual(conns[0]['dir'], '?')
+                self.assertEqual(conns[0]['type'], 'UDP (Unconnected)')
+                self.assertIsNone(conns[0]['rtt'])
+                self.assertIsNone(conns[0]['bytes_sent'])
+                self.assertIsNone(conns[0]['bytes_received'])
+
+    def test_connected_udp_does_not_claim_direct_or_relay_transport(self):
+        for peer_port in ('3478', '5349', '40000', '21114', '21117', '21118', '21119'):
+            with self.subTest(peer_port=peer_port):
+                output = (
+                    f'udp ESTAB 0 0 192.0.2.1:40000 198.51.100.1:{peer_port} '
+                    'users:(("rustdesk",pid=1234,fd=5))\n'
+                )
+                conn = self.target.parse_ss_output(output, 'rustdesk', '21118')[0]
+                self.assertEqual(conn['dir'], '?')
+                self.assertEqual(conn['type'], 'UDP (Transport Unknown)')
+
+    def test_udp_on_direct_access_port_is_not_an_incoming_tcp_peer(self):
+        output = (
+            'udp ESTAB 0 0 [2001:db8::1]:21118 [2001:db8::2]:40000 '
+            'users:(("rustdesk",pid=1234,fd=5))\n'
+        )
+        conn = self.target.parse_ss_output(output, 'rustdesk', '21118')[0]
+        self.assertEqual(conn['dir'], '?')
+        self.assertEqual(conn['type'], 'UDP (Transport Unknown)')
+
+    def test_standard_rendezvous_port_is_recognized_for_tcp_and_udp(self):
+        for proto in ('tcp', 'udp'):
+            with self.subTest(proto=proto):
+                result = self.target.classify_connection(proto, 'ESTAB', '40000', '21116', '21118')
+                self.assertEqual(result[:2], ('OUT', 'Rendezvous (Signaling)'))
+
+    def test_tcp_classifications_remain_available(self):
+        for state, local, peer, direct, expected in (
+            ('LISTEN', '21118', '*', '21118', ('LSTN', 'Direct Access (Listening)')),
+            ('LISTEN', '22000', '*', '22000', ('LSTN', 'Direct Access (Listening)')),
+            ('ESTAB', '22000', '40000', '22000', ('IN', 'Direct (Incoming Peer)')),
+            ('ESTAB', '40000', '21117', '21118', ('OUT', 'Relay (Indirect Routing)')),
+            ('ESTAB', '40000', '21118', '21118', ('OUT', 'WS Rendezvous')),
+            ('ESTAB', '40000', '21119', '21118', ('OUT', 'WS Relay')),
+            ('ESTAB', '40000', '40001', '21118', ('P2P', 'Direct (TCP P2P)')),
+        ):
+            with self.subTest(state=state, local=local, peer=peer):
+                result = self.target.classify_connection('tcp', state, local, peer, direct)
+                self.assertEqual(result[:2], expected)
+
     @patch('subprocess.check_output', return_value='')
     def test_collection_requests_listening_and_connected_sockets(self, mock_ss):
         self.target.run_ss()

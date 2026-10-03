@@ -10,7 +10,7 @@ A real-time, terminal-based dashboard for monitoring RustDesk connections. This 
 
 * **Zero Dependencies:** Runs on pure Python 3.x and `iproute2` (`ss`). No `pip install` required.
 * **Auto-Discovery:** Automatically reads your `RustDesk2.toml` to detect custom direct-access ports and NAT settings.
-* **Live Throughput:** Calculates live `↑ tx` and `↓ rx` rates across active relay, rendezvous, and direct connections.
+* **Live Throughput:** Calculates live `↑ tx` and `↓ rx` rates for TCP sockets when `ss` exposes the counters.
 * **Real-time Diagnostics:**
   * Displays moving-average RTT (latency) and jitter.
   * Visual Unicode sparklines for latency trends.
@@ -98,6 +98,9 @@ the active ports back to RustDesk's internal network architecture:
 * `21119` - WS Relay
 
 These are the standard server ports; see the [RustDesk server documentation](https://rustdesk.com/docs/en/self-host/rustdesk-server-oss/install/).
+Port-based labels are hints for the default server layout. API, relay, and
+WebSocket labels apply to TCP; rendezvous signaling uses both TCP and UDP on
+`21116`. Custom server ports may not be recognized by these hints.
 The direct-access port is read from `RustDesk2.toml` when configured. Unavailable
 traffic counters remain unknown (`null` in JSON, `—` in the dashboard); TX and RX
 rates are calculated independently when consecutive samples have the needed counter.
@@ -105,6 +108,38 @@ rates are calculated independently when consecutive samples have the needed coun
 ## Compatibility
 
 Designed and tested on Linux (specifically Arch/CachyOS). It works out of the box on Debian, Ubuntu, Fedora, and any distribution that provides `iproute2`.
+
+### RustDesk 1.5.0 transports
+
+Compatibility was reviewed against the tagged source for
+[RustDesk 1.5.0, released September 30, 2026](https://github.com/rustdesk/rustdesk/releases/tag/1.5.0).
+This release adds WebRTC alongside existing TCP, UDP/KCP, IPv6, and relay paths.
+WebRTC can use a direct ICE candidate pair or a TURN relay; RustDesk determines
+this from its [selected ICE candidate pair](https://github.com/rustdesk/hbb_common/blob/229b904508364c8997aad0fb5af57effac859f60/src/webrtc.rs#L1067-L1088).
+
+The monitor shows sockets rather than remote sessions. A session can create
+multiple sockets while gathering ICE candidates or racing transports, and
+signaling sockets can exist without a remote session. The **Sockets** summary
+counts non-listening sockets; TCP listeners appear under **Infrastructure**.
+
+* **UDP (Unconnected):** A bound UDP socket with a wildcard peer. WebRTC uses
+  [bound UDP sockets](https://github.com/rustdesk-org/webrtc/blob/49c89bd8d30e6e62e4c1a96cee38fdc11f79ef63/ice/src/agent/agent_gather.rs#L268-L294)
+  with `sendto`, so `UNCONN` does not mean inactive or listening.
+* **UDP (Transport Unknown):** A UDP socket with a peer endpoint. Socket data
+  alone cannot distinguish UDP/KCP, WebRTC, STUN, or TURN, so the monitor does
+  not claim the connection is direct or relayed. Recognized `21116` rendezvous
+  signaling retains its port-based label.
+
+Both generic UDP labels use unknown direction (`?` in JSON) and are excluded
+from the **Direct** and **Relay** counts. UDP RTT, jitter, retransmission, and
+throughput are unavailable from this `ss` collection and remain unknown;
+WebRTC's encrypted data channel is not inspected. TCP metrics and configured
+direct-access TCP listener/incoming detection remain available. JSON record
+structure is unchanged, but UDP `type` and `dir` values now reflect this
+uncertainty, so consumers matching the old labels should update their filters.
+
+Validation covers source-based compatibility and socket fixtures; it does not
+establish an end-to-end WebRTC connection test.
 
 ## Testing
 

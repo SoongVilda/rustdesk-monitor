@@ -8,6 +8,23 @@ compiled_monitor = load_compiled_monitor()
 
 
 class BaseTestHealthAndAlerts:
+    def test_tcp_and_udp_with_same_endpoints_keep_independent_history(self):
+        tracker = self.target.ConnectionTracker()
+        tcp = {'proto': 'tcp', 'local': '192.0.2.1:40000', 'peer': '198.51.100.1:21116',
+               'rtt': 10, 'bytes_sent': 100, 'bytes_received': 200}
+        udp = {'proto': 'udp', 'local': tcp['local'], 'peer': tcp['peer'],
+               'rtt': None, 'bytes_sent': None, 'bytes_received': None}
+        with patch('time.time', side_effect=[100, 101]):
+            first = tracker.update([dict(tcp), dict(udp)])
+            second = tracker.update([dict(tcp, bytes_sent=200, bytes_received=400), dict(udp)])
+        self.assertEqual(first[1]['rtt_hist'], [])
+        self.assertEqual(second[0]['rtt_hist'], [10, 10])
+        self.assertEqual(second[0]['tx_rate'], 100)
+        self.assertEqual(second[0]['rx_rate'], 200)
+        self.assertEqual(second[1]['rtt_hist'], [])
+        self.assertIsNone(second[1]['tx_rate'])
+        self.assertIsNone(second[1]['rx_rate'])
+
     def test_tracker_rates_with_missing_counters(self):
         for first_sent, next_sent, first_received, next_received, tx, rx in (
             (100, 200, None, None, 100, None),
